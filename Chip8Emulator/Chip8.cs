@@ -204,7 +204,7 @@ namespace Chip8Emulator
                     switch (_currentOpCode & 0x00FF)
                     {
                         //0xFx33: The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, 
-                        //the tens digit at location I+1, and the ones digit at location I+2.
+                        //the tens digit at location I+1, and the ones digit at location I+2. Representation for the BCD format.
                         case 0x0033:
                             _memory[_indexRegister] = (byte) (_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8]/100);
                             _memory[_indexRegister + 1] = (byte) ((byte)(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] / 10) % 10);
