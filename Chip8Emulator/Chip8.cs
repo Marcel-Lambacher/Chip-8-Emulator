@@ -80,6 +80,8 @@ namespace Chip8Emulator
 
         private readonly object _lock = new object();
 
+        private readonly Random _random = new Random(46546545);
+
         public Chip8(string gamePath, RenderEngine renderEngine, int clockSpeed)
         {
             _renderEngine = renderEngine;
@@ -143,48 +145,105 @@ namespace Chip8Emulator
             switch (_currentOpCode & 0xF000)
             {
                 case 0x0000:
+                {
                     switch (_currentOpCode & 0x000F)
                     {
                         //0x00E0: cls
                         case 0x0000:
+                        {
                             _renderEngine.ClearScreen();
                             _pixelMap = new byte[64 * 32];
                             _readyToDraw = true;
                             _programCounterRegister += 2;
-                        break;
+                            break;
+                        }
 
                         //0x00EE: return from a subroutine
                         case 0x00E:
+                        {
                             //Decrease stack pointer to restore the original program address.
                             _stackPointerRegister--;
                             _programCounterRegister = _stack[_stackPointerRegister];
                             _programCounterRegister += 2;
-                        break;
+                            break;
+                        }
+
+                        default:
+                        {
+                            Console.WriteLine("Unknow opcode: 0x" + _currentOpCode.ToString("X"));
+                            _programCounterRegister += 2;
+                            break;
+                        }
                     }
-                break;
+
+                    break;
+                }
 
                 //ANNN: Sets I to the address NNN
                 case 0xA000:
-                    _indexRegister = (ushort) (_currentOpCode & 0x0FFF);
+                {
+                    _indexRegister = (ushort)(_currentOpCode & 0x0FFF);
                     _programCounterRegister += 2;
-                break;
+
+                    break;
+                }
 
                 //0x2NNN Calls a subroutine
                 case 0x2000:
+                {
                     //Stores current programm address into the stack
                     _stack[_stackPointerRegister] = _programCounterRegister;
                     //Prevent stored address to override
                     _stackPointerRegister++;
                     //Call the subroutine at address (op & 0x0FFF)
-                    _programCounterRegister = (ushort) (_currentOpCode & 0x0FFF);
-                break;
+                    _programCounterRegister = (ushort)(_currentOpCode & 0x0FFF);
 
+                    break;
+                }
                 case 0x8000:
-                    //0x8XY4: Adds two numbers (x+y)
+                {
                     switch (_currentOpCode & 0x000F)
                     {
+                        //0x8xy0: Stores the value of register Vy in the register Vx.
+                        case 0x0000:
+                        {
+                            _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] = _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
+                            _programCounterRegister += 2;
+
+                            break;
+                        }
+
+                        //0x8xy1: Or's the values in the register Vx and Vy, the result will be stored in Vx.
+                        case 0x0001:
+                        {
+                            _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] |= _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
+                            _programCounterRegister += 2;
+
+                            break;
+                        }
+
+                        //0x8xy2: ands's the values in the register Vx and Vy, the result will be stored in Vx.
+                        case 0x0002:
+                        {
+                            _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] &= _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
+                            _programCounterRegister += 2;
+
+                            break;
+                        }
+
+                        //0x8xy3: xor's the values in the register Vx and Vy, the result will be stored in Vx.
+                        case 0x0003:
+                        {
+                            _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] ^= _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
+                            _programCounterRegister += 2;
+
+                            break;
+                        }
+
+                        //0x8XY4: Adds two numbers (x+y).
                         case 0x0004:
-                            if (_generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4]  > (0xFF - _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8]))
+                        {
+                            if (_generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4] > (0xFF - _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8]))
                             {
                                 //carry, result is larger then 255 
                                 _generalPurposeRegistersV[0xF] = 1;
@@ -196,27 +255,123 @@ namespace Chip8Emulator
 
                             _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] += _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
                             _programCounterRegister += 2;
-                        break;
-                    }
-                break;
 
+                            break;
+                        }
+
+                        //0x8XY5: Subs two numbers (x-y).
+                        case 0x0005:
+                        {
+                            if (_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] > (_generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4]))
+                            {
+                                //There is no barrow
+                                _generalPurposeRegistersV[0xF] = 1;
+                            }
+                            else
+                            {
+                                _generalPurposeRegistersV[0xF] = 0;
+                            }
+
+                            _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] -= _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
+                            _programCounterRegister += 2;
+
+                            break;
+                        }
+
+                        //0x8XY6: Divide Vx by 2. VF will carry the last bit of Vx before shifting.
+                        case 0x0006:
+                        {
+                            _generalPurposeRegistersV[0xF] = _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] &= 0x1;
+                            _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] >>= 1;
+                            _programCounterRegister += 2;
+
+                            break;
+                        }
+
+                        //0x8XY7: If Vx is bigger then Vy, VF will set to 1, otherwise VF will set to 0.
+                        //Also the value of Vx - Vy will be stored in Vx.
+                        case 0x0007:
+                        {
+                            if(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] > _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4])
+                            {
+                                _generalPurposeRegistersV[0xF] = 1;
+                            }else
+                            {
+                                _generalPurposeRegistersV[0xF] = 0;
+                            }
+
+                            _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] -= _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
+                            _programCounterRegister += 2;
+
+                            break;
+                        }
+
+                        //0x8XYE: multiple Vx by 2. VF will carry the last bit of Vx before shifting.
+                        case 0x000E:
+                        {
+                            _generalPurposeRegistersV[0xF] = _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] &= 0x1;
+                            _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] <<= 1;
+                            _programCounterRegister += 2;
+
+                            break;
+                        }
+
+                        default:
+                        {
+                            Console.WriteLine("Unknow opcode: 0x" + _currentOpCode.ToString("X"));
+                            _programCounterRegister += 2;
+                            break;
+                        }
+                    }
+
+                    break;
+                }
                 case 0xF000:
+                {
                     switch (_currentOpCode & 0x00FF)
                     {
                         //0xFx33: The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, 
                         //the tens digit at location I+1, and the ones digit at location I+2. Representation for the BCD format.
                         case 0x0033:
-                            _memory[_indexRegister] = (byte) (_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8]/100);
-                            _memory[_indexRegister + 1] = (byte) ((byte)(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] / 10) % 10);
+                        {
+                            _memory[_indexRegister] = (byte)(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] / 100);
+                            _memory[_indexRegister + 1] = (byte)((byte)(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] / 10) % 10);
                             _memory[_indexRegister + 2] = (byte)((byte)(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] / 100) % 10);
 
                             _programCounterRegister += 2;
-                        break;
-                    }
-                break;
 
+                            break;
+                        }
+
+                        //0xFx0A: Waits until a key is pressed and writes the value of this key into the register Vx.
+                        case 0x000A:
+                        {
+                            for (var keyIndex = 0; keyIndex < _keyMap.Length; keyIndex++)
+                            {
+                                while (_keyMap[keyIndex] != 1)
+                                {
+                                    _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] = (byte)keyIndex;
+                                }
+                            }
+
+                            _programCounterRegister += 2;
+
+                            break;
+                        }
+
+                        default:
+                        {
+                            Console.WriteLine("Unknow opcode: 0x" + _currentOpCode.ToString("X"));
+                            _programCounterRegister += 2;
+                            break;
+                        }
+                    }
+
+                    break;
+                }
                     //Draws a sprite onto the screen. Thos operation will also process collision detection.
                 case 0xD000:
+                {
                     var x = _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8];
                     var y = _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
                     var height = _currentOpCode & 0x000F;
@@ -229,12 +384,12 @@ namespace Chip8Emulator
                         {
                             if ((pixel & (0x80 >> xLine)) != 0)
                             {
-                                if (_pixelMap[(x + xLine + ((y + yLine)*64))] == 1)
+                                if (_pixelMap[(x + xLine + ((y + yLine) * 64))] == 1)
                                 {
                                     _generalPurposeRegistersV[0xF] = 1;
                                 }
 
-                                _pixelMap[x + xLine + ((y + yLine)*64)] ^= 1;
+                                _pixelMap[x + xLine + ((y + yLine) * 64)] ^= 1;
                             }
                         }
                     }
@@ -242,12 +397,165 @@ namespace Chip8Emulator
                     _readyToDraw = true;
                     _programCounterRegister += 2;
 
-                break;
+                    break;
+                }
+
+                case 0xE000:
+                {
+                    switch (_currentOpCode & 0x00FF)
+                    {
+                        //0xEX9E: Skips the next instruction if the key stored in Vx is pressed.
+                        case 0x009E:
+                        {
+                            if (_keyMap[_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8]] != 0)
+                            {
+                                _programCounterRegister += 4;
+                            }
+                            else
+                            {
+                                _programCounterRegister += 2;
+                            }
+
+                            break;
+                        }
+
+                        //0xExA1: Skips the next instruction if the key stored in Vx is not pressed.
+                        case 0x00A1:
+                        {
+                            if (_keyMap[_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8]] == 0)
+                            {
+                                _programCounterRegister += 4;
+                            }
+                            else
+                            {
+                                _programCounterRegister += 2;
+                            }
+
+                            break;
+                        }
+
+                        default:
+                        {
+                            Console.WriteLine("Unknow opcode: 0x" + _currentOpCode.ToString("X"));
+                            _programCounterRegister += 2;
+                            break;
+                        }
+                    }
+
+                    break;
+                }
+
+                //0x1NNN: Jump to the location at NNN
+                case 0x1000:
+                {
+                    var address = _currentOpCode & 0x0FFF;
+                    _programCounterRegister = (byte)address;
+
+                    break;
+                }
+
+                //0x3XKK: Skip the next instruction, if the value in Vx equals KK
+                case 0x3000:
+                {
+                    var vResult = _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8];
+                    if (vResult == (_currentOpCode & 0x00FF))
+                    {
+                        _programCounterRegister += 4;
+                    }
+                    else
+                    {
+                        _programCounterRegister += 2;
+                    }
+
+                    break;
+                }
+
+                //0x4xKK: Skips the next instruction, if the value in Vx does not equals with KK
+                case 0x4000:
+                {
+                    var result = _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8];
+                    if (result != (_currentOpCode & 0x00FF))
+                    {
+                        _programCounterRegister += 4;
+                    }
+                    else
+                    {
+                        _programCounterRegister += 2;
+                    }
+
+                    break;
+                }
+
+                //0x5XY0: Skipts the nect instruction, if the value stored in Vx and Vy equals.
+                case 0x5000:
+                {
+                    if (_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] == _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4])
+                    {
+                        _programCounterRegister += 4;
+                    }
+                    else
+                    {
+                        _programCounterRegister += 2;
+                    }
+
+                    break;
+                }
+
+                //0x6XKK: Puts the value KK into the register Vx
+                case 0x6000:
+                {
+                    var value = _currentOpCode & 0x00FF;
+                    _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] = (byte)value;
+                    _programCounterRegister += 2;
+
+                    break;
+                }
+                //0x7XKK: Adds the value kk to the value of register Vx
+                case 0x7000:
+                {
+                    var value = _currentOpCode & 0x00FF;
+                    _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] += (byte)value;
+                    _programCounterRegister += 2;
+
+                    break;
+                }
+
+                //0x9XY0: Skips the next instruction if the value in the register Vx and Vy does not equal.
+                case 0x9000:
+                {
+                    if(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] != _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4])
+                    {
+                        _programCounterRegister += 4;
+                    }else {
+                        _programCounterRegister += 2;
+                    }
+
+                    break;
+                }
+
+                //0xBnnn: Jump to the address in the register of V0 plus the value of nnn.
+                case 0xB000:
+                {
+                    _programCounterRegister = (ushort)(_generalPurposeRegistersV[0] + (_currentOpCode & 0x0FFF));
+
+                    break;
+                }
+
+                //0xCxkk: Generates a random number between 0 to 255 is is after this ANDed with the value of kk. The result are stored in the register Vx.
+                case 0xC000:
+                    {
+                        _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] = (byte)((_random.Next(256) & 0xFF) & (_currentOpCode & 0x00FF));
+
+                        break;
+                    }
 
                 default:
+                {
                     Console.WriteLine("Unknow opcode: 0x" + _currentOpCode.ToString("X"));
                     _programCounterRegister += 2;
+
                     break;
+                }
             }
 
             if (_delayTimerRegister > 0)
