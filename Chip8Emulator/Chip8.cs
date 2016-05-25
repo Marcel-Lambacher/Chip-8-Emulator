@@ -76,7 +76,9 @@ namespace Chip8Emulator
 
         private readonly RenderEngine _renderEngine;
 
-        private readonly System.Windows.Forms.Timer _timer;
+        private readonly Timer _timer;
+
+        private readonly object _lock = new object();
 
         public Chip8(string gamePath, RenderEngine renderEngine, int clockSpeed)
         {
@@ -100,16 +102,18 @@ namespace Chip8Emulator
         /// </summary>
         private void GameTick()
         {
-      
-            EmulateCycle();
-
-            if (_readyToDraw)
+            lock (_lock)
             {
-                DrawGraphics();
-                _readyToDraw = false;
-            }
+                EmulateCycle();
 
-            SetKeys();
+                if (_readyToDraw)
+                {
+                    DrawGraphics();
+                    _readyToDraw = false;
+                }
+
+                SetKeys();
+            }
         }
 
         /// <summary>
