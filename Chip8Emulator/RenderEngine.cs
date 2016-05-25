@@ -106,6 +106,7 @@ namespace Chip8Emulator
         {
             _readerWriterLock.EnterWriteLock();
             _pixelsToDraw = new bool[EmulatorWidth, EmulatorHeight];
+            _panel.Invalidate();
             _readerWriterLock.ExitWriteLock();
         }
     }
