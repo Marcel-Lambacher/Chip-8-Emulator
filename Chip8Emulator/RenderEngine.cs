@@ -33,6 +33,7 @@ namespace Chip8Emulator
             PixelWidth = 16;
 
             panel.Paint += PanelOnPaint;
+            ClearScreen();
         }
 
         private void PanelOnPaint(object sender, PaintEventArgs paintEventArgs)
@@ -42,7 +43,7 @@ namespace Chip8Emulator
                 return;
             }
 
-            var graphics = paintEventArgs.Graphics;            
+            var graphics = paintEventArgs.Graphics;
             graphics.Clear(_backgroundColor);
 
             _readerWriterLock.EnterReadLock();
@@ -62,15 +63,28 @@ namespace Chip8Emulator
             _readerWriterLock.ExitReadLock();
         }
 
-        public void DrawPixelSet(bool[,] pixelSet)
+        public void DrawPixelSet(byte[] pixelSet)
         {
-            if (pixelSet == null || pixelSet.GetLength(0) != EmulatorWidth || pixelSet.GetLength(1) != EmulatorHeight)
+            _readerWriterLock.EnterWriteLock();
+
+            for (var x = 0; x < EmulatorWidth; x++)
             {
-                throw new ArgumentException("Invalid pixel set.");
+                for (var y = 0; y < EmulatorHeight; y++)
+                {
+                    var value = pixelSet[x + (y*64)];
+                    if (value == 1)
+                    {
+                        _pixelsToDraw[x, y] = true;
+                        _graphicsChanged = true;
+                    }
+                    else
+                    {
+                        _pixelsToDraw[x, y] = false;
+                    }
+                }
             }
 
-            _readerWriterLock.EnterWriteLock();
-            _pixelsToDraw = pixelSet;
+            _panel.Invalidate();
             _readerWriterLock.ExitWriteLock();
         }
 

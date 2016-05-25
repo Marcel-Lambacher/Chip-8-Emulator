@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Chip8Emulator
@@ -29,7 +30,8 @@ namespace Chip8Emulator
 
             var filePath = open.FileName;
             var chip8 = new Chip8(filePath, _renderEngine);
-            chip8.GameLoop();
+
+            Task.Run(() => chip8.GameLoop());
         }
     }
 }

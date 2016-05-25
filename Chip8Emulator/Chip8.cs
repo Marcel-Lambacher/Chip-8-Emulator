@@ -9,6 +9,7 @@
 using System;
 using System.IO;
 using System.Media;
+using System.Threading;
 
 namespace Chip8Emulator
 {
@@ -66,16 +67,15 @@ namespace Chip8Emulator
 
         private byte[] _pixelMap = new byte[64 * 32];
 
+        /// <summary>
+        /// Will be only set from OP:0x00E0 (clear screen) and OP:0xDXYN (draw sprite on the screen)
+        /// </summary>
         private bool _readyToDraw;
 
         private readonly string _gamePath;
 
         private readonly RenderEngine _renderEngine;
 
-        /// <summary>
-        /// Will be only set from OP:0x00E0 (clear screen) and OP:0xDXYN (draw sprite on the screen)
-        /// </summary>
-        private bool readyToDraw;
 
         public Chip8(string gamePath, RenderEngine renderEngine)
         {
@@ -93,9 +93,11 @@ namespace Chip8Emulator
 
             while (true)
             {
+                //debug
+                Thread.Sleep(5);
                 EmulateCycle();
 
-                if (readyToDraw)
+                if (_readyToDraw)
                 {
                     DrawGraphics();
                 }
@@ -135,7 +137,8 @@ namespace Chip8Emulator
                     {
                         //0x00E0: cls
                         case 0x0000:
-                            //clear the screen
+                            _renderEngine.ClearScreen();
+                            _pixelMap = new byte[64 * 32];
                             _readyToDraw = true;
                             _programCounterRegister += 2;
                         break;
@@ -207,12 +210,11 @@ namespace Chip8Emulator
                     var x = _generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8];
                     var y = _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
                     var height = _currentOpCode & 0x000F;
-                    byte pixel;
 
                     _generalPurposeRegistersV[0xF] = 0;
                     for (var yLine = 0; yLine < height; yLine++)
                     {
-                        pixel = _memory[_indexRegister + yLine];
+                        var pixel = _memory[_indexRegister + yLine];
                         for (var xLine = 0; xLine < 8; xLine++)
                         {
                             if ((pixel & (0x80 >> xLine)) != 0)
@@ -259,7 +261,7 @@ namespace Chip8Emulator
         /// </summary>
         private void DrawGraphics()
         {
-            
+            _renderEngine.DrawPixelSet(_pixelMap);
         }
 
         /// <summary>
