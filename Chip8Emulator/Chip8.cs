@@ -9,7 +9,7 @@
 using System;
 using System.IO;
 using System.Media;
-using System.Threading;
+using System.Windows.Forms;
 
 namespace Chip8Emulator
 {
@@ -76,34 +76,40 @@ namespace Chip8Emulator
 
         private readonly RenderEngine _renderEngine;
 
+        private readonly System.Windows.Forms.Timer _timer;
 
-        public Chip8(string gamePath, RenderEngine renderEngine)
+        public Chip8(string gamePath, RenderEngine renderEngine, int clockSpeed)
         {
             _renderEngine = renderEngine;
             _gamePath = gamePath;
+
+            _timer = new Timer();
+            _timer.Interval = 1000 / clockSpeed;
+            _timer.Tick += (sender, args) => GameTick();
+        }
+
+        public void Start()
+        {
+            Initialize();
+            LoadGame();
+            _timer.Start();
         }
 
         /// <summary>
         /// The gaming loop of the chip-8 emulator
         /// </summary>
-        public void GameLoop()
+        private void GameTick()
         {
-            Initialize();
-            LoadGame();
+      
+            EmulateCycle();
 
-            while (true)
+            if (_readyToDraw)
             {
-                //debug
-                Thread.Sleep(5);
-                EmulateCycle();
-
-                if (_readyToDraw)
-                {
-                    DrawGraphics();
-                }
-
-                SetKeys();
+                DrawGraphics();
+                _readyToDraw = false;
             }
+
+            SetKeys();
         }
 
         /// <summary>
