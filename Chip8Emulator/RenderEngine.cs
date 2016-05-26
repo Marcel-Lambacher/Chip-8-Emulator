@@ -89,14 +89,7 @@ namespace Chip8Emulator
             {
                 for (var y = 0; y < _screen.InternalHeight; y++)
                 {
-                    if (pixelSet[x + (y * 64)] == 1)
-                    {
-                        _screen.Pixels[x, y] = true;
-                    }
-                    else
-                    {
-                        _screen.Pixels[x, y] = false;
-                    }
+                    _screen.Pixels[x, y] = pixelSet[x + (y * 64)] == 1;
                 }
             }
 
