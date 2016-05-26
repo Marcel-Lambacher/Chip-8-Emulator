@@ -125,6 +125,16 @@ namespace Chip8Emulator
                     cpuTimeSpeed = DateTime.MinValue;
                     EmulateCycle();
 
+
+                }
+
+                //Delay and sound timer at 60hz
+                if ((DateTime.Now - clockTimeSpeed).TotalMilliseconds >= 16)
+                {
+                    clockTimeSpeed = DateTime.MinValue;
+
+                    //Experimental: Normally, graphic and keys should be in the 500mhz loop...
+                    //But this increase the game performance.
                     if (_readyToDraw)
                     {
                         DrawGraphics();
@@ -132,12 +142,6 @@ namespace Chip8Emulator
                     }
 
                     SetKeys();
-                }
-
-                //Delay and sound timer at 60hz
-                if ((DateTime.Now - clockTimeSpeed).TotalMilliseconds >= 16)
-                {
-                    clockTimeSpeed = DateTime.MinValue;
                     UpdateSoundAndDelay();
                 }
             }
