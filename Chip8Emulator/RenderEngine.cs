@@ -78,7 +78,7 @@ namespace Chip8Emulator
 
         public void Clear()
         {
-            GL.ClearColor(Color.Black);
+            //GL.ClearColor(Color.SkyBlue);
             _screen.Clear();
             _glControl.Invalidate();
         }

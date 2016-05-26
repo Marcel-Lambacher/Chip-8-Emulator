@@ -87,11 +87,7 @@ namespace Chip8Emulator
         public Chip8(string gamePath, RenderEngine renderEngine, int clockSpeed)
         {
             _renderEngine = renderEngine;
-            _gamePath = gamePath;
-
-            //_timer = new Timer();
-            //_timer.Interval = 1;
-            //_timer.Tick += (sender, args) => GameTick();           
+            _gamePath = gamePath;        
         }
 
         public Func<byte[]> GetKeyMap { get; set; }
@@ -108,17 +104,25 @@ namespace Chip8Emulator
         /// </summary>
         private void GameTick()
         {
-            DateTime start = DateTime.MinValue;
+            DateTime cpuTimeSpeed = DateTime.MinValue;
+            DateTime clockTimeSpeed = DateTime.MinValue;
+
             while (true)
             {
-                if (start == DateTime.MinValue)
+                if (cpuTimeSpeed == DateTime.MinValue)
                 {
-                    start = DateTime.Now;
+                    cpuTimeSpeed = DateTime.Now;
                 }
 
-                if ((DateTime.Now - start).TotalMilliseconds >= 2)
+                if (clockTimeSpeed == DateTime.MinValue)
                 {
-                    start = DateTime.MinValue;
+                    clockTimeSpeed = DateTime.Now;
+                }
+
+                //Cpu clock at 500mhz
+                if ((DateTime.Now - cpuTimeSpeed).TotalMilliseconds >= 2)
+                {
+                    cpuTimeSpeed = DateTime.MinValue;
                     EmulateCycle();
 
                     if (_readyToDraw)
@@ -128,6 +132,13 @@ namespace Chip8Emulator
                     }
 
                     SetKeys();
+                }
+
+                //Delay and sound timer at 60hz
+                if ((DateTime.Now - clockTimeSpeed).TotalMilliseconds >= 16)
+                {
+                    clockTimeSpeed = DateTime.MinValue;
+                    UpdateSoundAndDelay();
                 }
             }
         }
@@ -146,6 +157,24 @@ namespace Chip8Emulator
             //Load fontset into the memory
             //Data like fonts should be stored between 0x000 and 0x1FF (512bit)
             Buffer.BlockCopy(FontSet.GetFontSet(), 0, _memory, 0, 80);
+        }
+
+        private void UpdateSoundAndDelay()
+        {
+            if (_delayTimerRegister > 0)
+            {
+                _delayTimerRegister--;
+            }
+
+            if (_soundTimerRegister > 0)
+            {
+                if (_soundTimerRegister == 1)
+                {
+                    SystemSounds.Beep.Play();
+                }
+
+                _soundTimerRegister--;
+            }
         }
 
         /// <summary>
@@ -482,7 +511,8 @@ namespace Chip8Emulator
                             {
                                 if ((pixel & (0x80 >> xLine)) != 0)
                                 {
-                                    if(((y + yLine) * 64) >= _pixelMap.Length){
+                                    if(x + xLine + ((y + yLine) * 64) >= _pixelMap.Length)
+                                    {
                                         continue;
                                     }
 
@@ -661,21 +691,6 @@ namespace Chip8Emulator
 
                         break;
                     }
-            }
-
-            if (_delayTimerRegister > 0)
-            {
-                _delayTimerRegister--;
-            }
-
-            if (_soundTimerRegister > 0)
-            {
-                if (_soundTimerRegister == 1)
-                {
-                    SystemSounds.Beep.Play();
-                }
-
-                _soundTimerRegister--;
             }
         }
 
