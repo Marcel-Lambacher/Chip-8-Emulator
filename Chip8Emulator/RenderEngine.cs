@@ -5,7 +5,7 @@ using System.Windows.Forms;
 
 namespace Chip8Emulator
 {
-    public class RenderEngine
+    public class RenderEngine: IRenderEngine
     {
         private readonly GLControl _glControl;
 
@@ -61,19 +61,13 @@ namespace Chip8Emulator
             GL.Vertex2(x * Screen.PixelDimension, (y * Screen.PixelDimension) + Screen.PixelDimension);
         }
 
-        public void SetupViewport()
+        private void SetupViewport()
         {
             GL.ClearColor(Color.SkyBlue);
             GL.MatrixMode(MatrixMode.Projection);
             GL.LoadIdentity();
             GL.Ortho(0, Width, Height, 0, -1, 1);
             GL.Viewport(0, 0, Width, Height);
-        }
-
-        public void Draw(int x, int y)
-        {
-            _screen.Pixels[x, y] = true;
-            _glControl.Invalidate();
         }
 
         public void Clear()

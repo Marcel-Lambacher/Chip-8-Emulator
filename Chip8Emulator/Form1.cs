@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using OpenTK.Graphics.OpenGL;
+using System.IO;
 
 namespace Chip8Emulator
 {
@@ -31,14 +32,14 @@ namespace Chip8Emulator
         private void button1_Click(object sender, EventArgs e)
         {
             var open = new OpenFileDialog();
-           // open.Filter = @"Chip-8 | *.c8";
+
             if (open.ShowDialog() != DialogResult.OK)
             {
                 return;
             }
 
             var filePath = open.FileName;
-            _emulator = new Chip8(filePath, _renderEngine, 6000);
+            _emulator = new Chip8(new FileStream(filePath, FileMode.Open, FileAccess.Read), _renderEngine);
             _emulator.GetKeyMap = () => _keyMap;
 
             Task.Run(() => _emulator.Start());

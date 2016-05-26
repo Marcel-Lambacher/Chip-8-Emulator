@@ -72,9 +72,9 @@ namespace Chip8Emulator
         /// </summary>
         private bool _readyToDraw;
 
-        private readonly string _gamePath;
+        private readonly Stream _gameStream;
 
-        private readonly RenderEngine _renderEngine;
+        private readonly IRenderEngine _renderEngine;
 
         //  private readonly Timer _timer;
 
@@ -82,12 +82,13 @@ namespace Chip8Emulator
 
         private readonly Random _random = new Random(46546545);
 
+        private bool _gameIsRunning;
+        private int _emptyOperationCount;
 
-
-        public Chip8(string gamePath, RenderEngine renderEngine, int clockSpeed)
+        public Chip8(Stream stream, IRenderEngine renderEngine)
         {
             _renderEngine = renderEngine;
-            _gamePath = gamePath;        
+            _gameStream = stream;        
         }
 
         public Func<byte[]> GetKeyMap { get; set; }
@@ -104,46 +105,39 @@ namespace Chip8Emulator
         /// </summary>
         private void GameTick()
         {
-            DateTime cpuTimeSpeed = DateTime.MinValue;
-            DateTime clockTimeSpeed = DateTime.MinValue;
+            Stopwatch watch = new Stopwatch();
+            var instructionCount = 0;
+            _gameIsRunning = true;
 
-            while (true)
+            while (_gameIsRunning)
             {
-                if (cpuTimeSpeed == DateTime.MinValue)
+                watch.Restart();
+
+                EmulateCycle();
+
+                //Updates the internal timer at a 60hz frequenz
+                //540hz (game tick) divided by 9 equals 60hz (timer tick)
+                instructionCount++;
+                if(instructionCount == 9)
                 {
-                    cpuTimeSpeed = DateTime.Now;
-                }
-
-                if (clockTimeSpeed == DateTime.MinValue)
-                {
-                    clockTimeSpeed = DateTime.Now;
-                }
-
-                //Cpu clock at 500mhz
-                if ((DateTime.Now - cpuTimeSpeed).TotalMilliseconds >= 2)
-                {
-                    cpuTimeSpeed = DateTime.MinValue;
-                    EmulateCycle();
-
-
-                }
-
-                //Delay and sound timer at 60hz
-                if ((DateTime.Now - clockTimeSpeed).TotalMilliseconds >= 16)
-                {
-                    clockTimeSpeed = DateTime.MinValue;
-
-                    //Experimental: Normally, graphic and keys should be in the 500mhz loop...
-                    //But this increase the game performance.
-                    if (_readyToDraw)
-                    {
-                        DrawGraphics();
-                        _readyToDraw = false;
-                    }
-
-                    SetKeys();
                     UpdateSoundAndDelay();
+                    instructionCount = 0;
                 }
+
+                if (_readyToDraw)
+                {
+                    DrawGraphics();
+                    _readyToDraw = false;
+                }
+
+                SetKeys();
+
+                //Pause the game to get a virtual clock speed of ca. 540mhz
+                var elapsedMicroseconds = watch.ElapsedTicks / (Stopwatch.Frequency / (1000L * 1000L));    
+                while(elapsedMicroseconds < 1852)
+                {
+                    elapsedMicroseconds = watch.ElapsedTicks / (Stopwatch.Frequency / (1000L * 1000L));
+                }     
             }
         }
 
@@ -188,6 +182,16 @@ namespace Chip8Emulator
         {
             //fetch operation code
             _currentOpCode = (ushort)((_memory[_programCounterRegister] << 8) | _memory[_programCounterRegister + 1]);
+
+            if(_currentOpCode == 0x0)
+            {
+                _emptyOperationCount++;
+                if(_emptyOperationCount == 10)
+                {
+                    _gameIsRunning = false;
+                }
+            }
+
             switch (_currentOpCode & 0xF000)
             {
                 case 0x0000:
@@ -506,11 +510,15 @@ namespace Chip8Emulator
                         var y = _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
                         var height = _currentOpCode & 0x000F;
 
+                        byte[] font = new byte[height];
+
                         _generalPurposeRegistersV[0xF] = 0;
-             
+
                         for (var yLine = 0; yLine < height; yLine++)
                         {
                             var pixel = _memory[_indexRegister + yLine];
+                            font[yLine] = pixel;
+
                             for (var xLine = 0; xLine < 8; xLine++)
                             {
                                 if ((pixel & (0x80 >> xLine)) != 0)
@@ -528,6 +536,21 @@ namespace Chip8Emulator
                                     _pixelMap[x + xLine + ((y + yLine) * 64)] ^= 1;
                                 }
                             }
+                        }
+
+                        if (height == 5 && _indexRegister < 80)
+                        {
+                            var set = FontSet.GetFontSet();
+                            var result = string.Empty;
+
+                            for(var index = 0; index < 5; index++)
+                            {
+                                result += "0b" + Convert.ToString(set[_indexRegister + index], 2).PadLeft(8, '0') + "\r\n";
+                            }
+
+                            Console.WriteLine(result);
+                            Console.WriteLine();
+                            Console.WriteLine();
                         }
 
                         _readyToDraw = true;
@@ -724,8 +747,21 @@ namespace Chip8Emulator
         /// </summary>
         private void LoadGame()
         {
-            var gameBytes = File.ReadAllBytes(_gamePath);
-            Buffer.BlockCopy(gameBytes, 0, _memory, 512, gameBytes.Length);
+
+            var buffer = new byte[4096];
+            var bytesRead = 0;
+            byte[] game;
+            using(var memoryStream = new MemoryStream())
+            {
+                while((bytesRead = _gameStream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    memoryStream.Write(buffer, 0, bytesRead);
+                }
+
+                game = memoryStream.ToArray();
+            }
+
+            Buffer.BlockCopy(game, 0, _memory, 512, game.Length);
         }
     }
 }
