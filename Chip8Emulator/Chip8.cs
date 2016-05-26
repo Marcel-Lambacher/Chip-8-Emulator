@@ -98,7 +98,7 @@ namespace Chip8Emulator
             LoadGame();
             GameTick();
         }
-        private Stopwatch _w = new Stopwatch();
+
         /// <summary>
         /// The gaming loop of the chip-8 emulator
         /// </summary>
