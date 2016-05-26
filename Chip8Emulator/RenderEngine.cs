@@ -1,113 +1,106 @@
-﻿using System;
+﻿using OpenTK;
+using OpenTK.Graphics.OpenGL;
 using System.Drawing;
-using System.Threading;
 using System.Windows.Forms;
 
 namespace Chip8Emulator
 {
     public class RenderEngine
     {
-        private readonly Brush _foregroundBrush;
-        private readonly Color _backgroundColor;
+        private readonly GLControl _glControl;
 
-        private readonly Control _panel;
+        public Color BackgroundColor { get; set; }
+        public Color ForegroundColor { get; set; }
 
-        public int PixelWidth { get; set; }
-        public int PixelHeight { get; set; }
+        public int Height { get; set; }
+        public int Width { get; set; }
 
-        private const int EmulatorHeight = 32;
-        private const int EmulatorWidth = 64;
+        private readonly Screen _screen;
 
-        private bool[,] _pixelsToDraw = new bool[EmulatorWidth, EmulatorHeight];
-        private readonly ReaderWriterLockSlim _readerWriterLock = new ReaderWriterLockSlim();
-
-        private bool _graphicsChanged;       
-
-        public RenderEngine(Control panel, Brush foreground, Color background)
+        public RenderEngine(GLControl glControl)
         {
-            _panel = panel;
-            _foregroundBrush = foreground;
-            _backgroundColor = background;
+            _screen = new Screen();
+            _glControl = glControl;
 
-            PixelHeight = 16;
-            PixelWidth = 16;
+            Height = glControl.Height;
+            Width = glControl.Width;
 
-            panel.Paint += PanelOnPaint;
-            ClearScreen();
+            _glControl.Paint += GlControlPaint;
+            SetupViewport();
         }
 
-        private void PanelOnPaint(object sender, PaintEventArgs paintEventArgs)
+        private void GlControlPaint(object sender, PaintEventArgs e)
         {
-            if (!_graphicsChanged)
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+            GL.MatrixMode(MatrixMode.Modelview);
+            GL.LoadIdentity();
+            GL.Color3(Color.Yellow);
+            GL.Begin(PrimitiveType.Quads);
+
+            for (var x = 0; x < _screen.InternalWidth; x++)
             {
-                return;
-            }
-
-            var graphics = paintEventArgs.Graphics;
-            graphics.Clear(_backgroundColor);
-
-            _readerWriterLock.EnterReadLock();
-
-            for (var xIndex = 0; xIndex < EmulatorWidth; xIndex++)
-            {
-                for (var yIndex = 0; yIndex < EmulatorHeight; yIndex++)
+                for(var y = 0; y < _screen.InternalHeight; y++)
                 {
-                    if(_pixelsToDraw[xIndex, yIndex])
+                    if (_screen.Pixels[x, y])
                     {
-                        graphics.FillRectangle(_foregroundBrush, xIndex * PixelWidth, yIndex * PixelHeight, PixelWidth, PixelHeight);
+                        DrawPixel(x, y);
                     }
                 }
             }
 
-            _graphicsChanged = false;
-            _readerWriterLock.ExitReadLock();
+            GL.End();
+            _glControl.SwapBuffers();
+        }
+
+        private void DrawPixel(int x, int y)
+        {
+            GL.Vertex2(x * Screen.PixelDimension, y * Screen.PixelDimension);
+            GL.Vertex2((x * Screen.PixelDimension) + Screen.PixelDimension, y * Screen.PixelDimension);
+            GL.Vertex2((x * Screen.PixelDimension) + Screen.PixelDimension, (y * Screen.PixelDimension) + Screen.PixelDimension);
+            GL.Vertex2(x * Screen.PixelDimension, (y * Screen.PixelDimension) + Screen.PixelDimension);
+        }
+
+        public void SetupViewport()
+        {
+            GL.ClearColor(Color.SkyBlue);
+            GL.MatrixMode(MatrixMode.Projection);
+            GL.LoadIdentity();
+            GL.Ortho(0, Width, Height, 0, -1, 1);
+            GL.Viewport(0, 0, Width, Height);
+        }
+
+        public void Draw(int x, int y)
+        {
+            _screen.Pixels[x, y] = true;
+            _glControl.Invalidate();
+        }
+
+        public void Clear()
+        {
+            GL.ClearColor(Color.Black);
+            _screen.Clear();
+            _glControl.Invalidate();
         }
 
         public void DrawPixelSet(byte[] pixelSet)
         {
-            _readerWriterLock.EnterWriteLock();
-
-            for (var x = 0; x < EmulatorWidth; x++)
+            for (var x = 0; x < _screen.InternalWidth; x++)
             {
-                for (var y = 0; y < EmulatorHeight; y++)
+                for (var y = 0; y < _screen.InternalHeight; y++)
                 {
-                    var value = pixelSet[x + (y*64)];
-                    if (value == 1)
+                    if (pixelSet[x + (y * 64)] == 1)
                     {
-                        _pixelsToDraw[x, y] = true;
-                        _graphicsChanged = true;
+                        _screen.Pixels[x, y] = true;
                     }
                     else
                     {
-                        _pixelsToDraw[x, y] = false;
+                        _screen.Pixels[x, y] = false;
                     }
                 }
             }
 
-            _panel.Invalidate();
-            _readerWriterLock.ExitWriteLock();
-        }
-
-        public void DrawPixel(int x, int y)
-        {
-            _pixelsToDraw[x, y] = true;
-            _graphicsChanged = true;
-            _panel.Invalidate();
-        }
-
-        public void ClearPixel(int x, int y)
-        {
-            _pixelsToDraw[x, y] = false;
-            _graphicsChanged = true;
-            _panel.Invalidate();
-        }
-
-        public void ClearScreen()
-        {
-            _readerWriterLock.EnterWriteLock();
-            _pixelsToDraw = new bool[EmulatorWidth, EmulatorHeight];
-            _panel.Invalidate();
-            _readerWriterLock.ExitWriteLock();
+            _glControl.Invalidate();
         }
     }
 }

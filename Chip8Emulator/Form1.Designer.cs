@@ -31,11 +31,13 @@
             this.textBox1 = new System.Windows.Forms.TextBox();
             this.button1 = new System.Windows.Forms.Button();
             this.renderPanel = new System.Windows.Forms.PictureBox();
+            this.glControl1 = new OpenTK.GLControl();
             ((System.ComponentModel.ISupportInitialize)(this.renderPanel)).BeginInit();
             this.SuspendLayout();
             // 
             // textBox1
             // 
+            this.textBox1.Enabled = false;
             this.textBox1.Location = new System.Drawing.Point(13, 13);
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(981, 20);
@@ -59,17 +61,30 @@
             this.renderPanel.TabIndex = 2;
             this.renderPanel.TabStop = false;
             // 
+            // glControl1
+            // 
+            this.glControl1.BackColor = System.Drawing.Color.Black;
+            this.glControl1.Location = new System.Drawing.Point(13, 40);
+            this.glControl1.Name = "glControl1";
+            this.glControl1.Size = new System.Drawing.Size(1024, 512);
+            this.glControl1.TabIndex = 3;
+            this.glControl1.VSync = false;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1049, 562);
+            this.Controls.Add(this.glControl1);
             this.Controls.Add(this.renderPanel);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.textBox1);
+            this.KeyPreview = true;
             this.Name = "Form1";
             this.Text = "Form1";
             this.Load += new System.EventHandler(this.Form1_Load);
+            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.Form1_KeyDown);
+            this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.Form1_KeyUp);
             ((System.ComponentModel.ISupportInitialize)(this.renderPanel)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -81,6 +96,7 @@
         private System.Windows.Forms.TextBox textBox1;
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.PictureBox renderPanel;
+        private OpenTK.GLControl glControl1;
     }
 }
 
