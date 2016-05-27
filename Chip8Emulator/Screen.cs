@@ -2,7 +2,7 @@
 {
     public class Screen
     {
-        public static int PixelDimension { get { return  16;} }
+        public static int PixelDimension { get { return 16; } }
 
         public int InternalHeight { get; set; }
         public int InternalWidth { get; set; }

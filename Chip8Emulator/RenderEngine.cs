@@ -1,4 +1,5 @@
-﻿using OpenTK;
+﻿using System.Diagnostics;
+using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using System.Drawing;
 using System.Windows.Forms;
@@ -16,6 +17,7 @@ namespace Chip8Emulator
         public int Width { get; set; }
 
         private readonly Screen _screen;
+        private readonly Stopwatch _frameWatch = new Stopwatch();
 
         public RenderEngine(GLControl glControl)
         {
@@ -27,6 +29,8 @@ namespace Chip8Emulator
 
             _glControl.Paint += GlControlPaint;
             SetupViewport();
+
+            _frameWatch.Start();
         }
 
         private void GlControlPaint(object sender, PaintEventArgs e)
