@@ -386,8 +386,8 @@ namespace Chip8Emulator
                             case 0x0033:
                                 {
                                     _memory[_indexRegister] = (byte)(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] / 100);
-                                    _memory[_indexRegister + 1] = (byte)((byte)(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] / 10) % 10);
-                                    _memory[_indexRegister + 2] = (byte)((byte)(_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] / 100) % 10);
+                                    _memory[_indexRegister + 1] = (byte)((_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] % 100) / 10);
+                                    _memory[_indexRegister + 2] = (byte)((_generalPurposeRegistersV[(_currentOpCode & 0x0F00) >> 8] % 100) % 10);
 
                                     _programCounterRegister += 2;
 
