@@ -8,7 +8,7 @@ This is an emulator to play games based on the virtual 8 chip.
 
 ## Requirements
 
-You just have to install .NET Framework 4.5
+You only have to install .NET Framework 4.5
 
 ## How to use
 
