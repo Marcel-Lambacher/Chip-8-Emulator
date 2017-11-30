@@ -4,48 +4,59 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using OpenTK.Graphics.OpenGL;
 using System.IO;
+using System.Threading;
 
 namespace Chip8Emulator
 {
-    public partial class Form1 : Form
+    public partial class EmulatorForm : Form
     {
         private RenderEngine _renderEngine;
         private readonly byte[] _keyMap = new byte[16];
         private Chip8 _emulator;
+        private Task _emulatorTask;
+        private CancellationTokenSource _cancellationToken = new CancellationTokenSource();
 
-        public Form1()
+        public EmulatorForm()
         {
             InitializeComponent();
-            glControl1.Load += GlControl1_Load;
+            chipRenderPanel.Load += renderPanel_Load;
         }
 
-        private void GlControl1_Load(object sender, EventArgs e)
+        private void renderPanel_Load(object sender, EventArgs e)
         {
             GL.ClearColor(Color.SkyBlue);
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private void EmulatorForm_Load(object sender, EventArgs e)
         {
-            _renderEngine = new RenderEngine(glControl1);         
+            _renderEngine = new RenderEngine(chipRenderPanel);         
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void openRomButton_Click(object sender, EventArgs e)
         {
             var open = new OpenFileDialog();
-
             if (open.ShowDialog() != DialogResult.OK)
             {
                 return;
             }
 
-            var filePath = open.FileName;
-            _emulator = new Chip8(new FileStream(filePath, FileMode.Open, FileAccess.Read), _renderEngine);
-            _emulator.GetKeyMap = () => _keyMap;
+            if (_emulator != null)
+            {
+                _cancellationToken?.Cancel();
+                _emulator.Dispose();
+            }
 
-            Task.Run(() => _emulator.Start());
+            var filePath = open.FileName;
+            _emulator = new Chip8(new FileStream(filePath, FileMode.Open, FileAccess.Read), _renderEngine)
+            {
+                GetKeyMap = () => _keyMap
+            };
+
+            _cancellationToken = new CancellationTokenSource();
+            _emulatorTask = Task.Run(() => _emulator.Start(_cancellationToken.Token));
         }
 
-        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        private void EmulatorForm_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.D1)
             {
@@ -113,7 +124,7 @@ namespace Chip8Emulator
             }
         }
 
-        private void Form1_KeyUp(object sender, KeyEventArgs e)
+        private void EmulatorForm_KeyUp(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.D1)
             {
@@ -179,6 +190,11 @@ namespace Chip8Emulator
             {
                 _keyMap[15] = 0;
             }
+        }
+
+        private void EmulatorForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            _emulator.Dispose();
         }
     }
 }

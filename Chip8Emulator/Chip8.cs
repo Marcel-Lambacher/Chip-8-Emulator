@@ -1,21 +1,14 @@
-﻿/*This is my first emulator based on the virtual processor Chip-8
- * With this tutorial I've implemented this emulator:
- * http://www.multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
- * 
- * This emulator is still in development, sry for ugly code. I'll refactor at the end 
- * of this project ;)
- */
-
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Media;
 using System.Reflection;
+using System.Threading;
 
 namespace Chip8Emulator
 {
-    public class Chip8
+    public class Chip8: IDisposable
     {
         /// <summary>
         /// Represents the current executing operation code.
@@ -74,38 +67,35 @@ namespace Chip8Emulator
         /// </summary>
         private bool _readyToDraw;
 
-        private readonly Stream _gameStream;
-
+        private readonly Stream _romStream;
         private readonly IRenderEngine _renderEngine;
-
         private readonly Random _random = new Random(46546545);
 
         private bool _gameIsRunning;
         private int _emptyOperationCount;
 
-        public Chip8(Stream stream, IRenderEngine renderEngine)
+        public Chip8(Stream romStream, IRenderEngine renderEngine)
         {
             _renderEngine = renderEngine;
-            _gameStream = stream;        
+            _romStream = romStream;        
         }
 
         public Func<byte[]> GetKeyMap { get; set; }
         private readonly Action[] _jumpTable = new Action[0xFFFF];
         private OpCodeAttribute[] _opCodes;
 
-        public void Start()
+        public void Start(CancellationToken cancellationToken)
         {
             Initialize();
-            //Jump table is experimental
-            //InitializeJumpTable();
+            InitializeJumpTable();
             LoadGame();
-            GameTick();
+            GameTick(cancellationToken);
         }
 
         /// <summary>
         /// The gaming loop of the chip-8 emulator
         /// </summary>
-        private void GameTick()
+        private void GameTick(CancellationToken cancellationToken)
         {
             //Stopwatch watch = new Stopwatch();
             var instructionCount = 0;
@@ -114,7 +104,7 @@ namespace Chip8Emulator
             var clockWatch = new Stopwatch();
             clockWatch.Start();
 
-            while (_gameIsRunning)
+            while (_gameIsRunning && !cancellationToken.IsCancellationRequested)
             {
                 clockWatch.Restart();
 
@@ -151,7 +141,7 @@ namespace Chip8Emulator
         /// </summary>
         private void Initialize()
         {
-            //Chip8 programm start mostly always at address: 0x200
+            //Chip8 programm start always at address: 0x200
             _programCounterRegister = 0x200;
             _currentOpCode = 0;
             _indexRegister = 0;
@@ -213,321 +203,61 @@ namespace Chip8Emulator
                 }
             }
 
-            //for (var opIndex = 0; opIndex < _opCodes.Length; opIndex++)
-            //{
-            //    if ((_currentOpCode & _opCodes[opIndex].Mask) == _opCodes[opIndex].OpCode)
-            //    {
-            //        _jumpTable[_opCodes[opIndex].OpCode]();
-            //    }
-            //}
-
-            switch (_currentOpCode & 0xF000)
+            for (var opIndex = 0; opIndex < _opCodes.Length; opIndex++)
             {
-                case 0x0000:
-                    {
-                        switch (_currentOpCode & 0x000F)
-                        {
-                            //0x00E0: cls
-                            case 0x0000:
-                                {
-                                    ClearScreen();
-                                    break;
-                                }
-
-                            //0x00EE: return from a subroutine
-                            case 0x00E:
-                                {
-                                    ReturnFromSubroutine();
-                                    break;
-                                }
-
-                            default:
-                                {
-                                    Console.WriteLine("Unknow opcode: 0x" + _currentOpCode.ToString("X"));
-                                    _programCounterRegister += 2;
-                                    break;
-                                }
-                        }
-
-                        break;
-                    }
-
-                //ANNN: Sets I to the address NNN
-                case 0xA000:
-                    {
-                        SetIToNnn();
-                        break;
-                    }
-
-                //0x2NNN Calls a subroutine
-                case 0x2000:
-                    {
-                        CallSubroutine();
-                        break;
-                    }
-                case 0x8000:
-                    {
-                        switch (_currentOpCode & 0x000F)
-                        {
-                            //0x8xy0: Stores the value of register Vy in the register Vx.
-                            case 0x0000:
-                                {
-                                    StoreVyIntoVx();
-                                    break;
-                                }
-
-                            //0x8xy1: Or's the values in the register Vx and Vy, the result will be stored in Vx.
-                            case 0x0001:
-                                {
-                                    VxOrVy();
-                                    break;
-                                }
-
-                            //0x8xy2: ands's the values in the register Vx and Vy, the result will be stored in Vx.
-                            case 0x0002:
-                                {
-                                    VxAndVy();
-                                    break;
-                                }
-
-                            //0x8xy3: xor's the values in the register Vx and Vy, the result will be stored in Vx.
-                            case 0x0003:
-                                {
-                                    VxXorVy();
-                                    break;
-                                }
-
-                            //0x8XY4: Adds two numbers (x+y).
-                            case 0x0004:
-                                {
-                                    VxAddsVy();
-                                    break;
-                                }
-
-                            //0x8XY5: Subs two numbers (x-y).
-                            case 0x0005:
-                                {
-                                    VxSbubVy();
-                                    break;
-                                }
-
-                            //0x8XY6: Divide Vx by 2. VF will carry the last bit of Vx before shifting.
-                            case 0x0006:
-                                {
-                                    VxDivideByTwo();
-                                    break;
-                                }
-
-                            //0x8XY7: If Vx is bigger then Vy, VF will set to 1, otherwise VF will set to 0.
-                            //Also the value of Vx - Vy will be stored in Vx.
-                            case 0x0007:
-                                {
-                                    VxMinusVyWithBarrow();
-                                    break;
-                                }
-
-                            //0x8XYE: multiple Vx by 2. VF will carry the last bit of Vx before shifting.
-                            case 0x000E:
-                                {
-                                    VxMultipleByTwo();
-                                    break;
-                                }
-
-                            default:
-                                {
-                                    Console.WriteLine("Unknow opcode: 0x" + _currentOpCode.ToString("X"));
-                                    _programCounterRegister += 2;
-                                    break;
-                                }
-                        }
-
-                        break;
-                    }
-                case 0xF000:
-                    {
-                        switch (_currentOpCode & 0x00FF)
-                        {
-                            //0xFx33: The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, 
-                            //the tens digit at location I+1, and the ones digit at location I+2. Representation for the BCD format.
-                            case 0x0033:
-                                {
-                                    VxToBcd();
-                                    break;
-                                }
-
-                            //0xFx07: Stores the value of the delay timer into the register Vx
-                            case 0x0007:
-                                {
-                                    ValueOfDelayTimerIntoVx();
-                                    break;
-                                }
-
-                            //0xFx15: Sets the delay timer to the value in the register Vx
-                            case 0x0015:
-                                {
-                                    SetsDelayTimerToVx();
-                                    break;
-                                }
-
-                            //0xFx18: Sets the sound timer to the value in the register Vx
-                            case 0x0018:
-                                {
-                                    SetsSoundTimerToVx();
-                                    break;
-                                }
-
-                            //0xFx1E: Adds the value of the register Vx to the index register
-                            case 0x001E:
-                                {
-                                    AddsVxToI();
-                                    break;
-                                }
-
-                            //0xFx29: Set the location of a sprite from the register Vx into the index register.
-                            case 0x0029:
-                                {
-                                    SpriteLocationFromVxIntoI();
-                                    break;
-                                }
-
-                            //0xFx55: Copy the registers V0 to Vx into the memory at the address defined in the index register.
-                            //After this, the index register pointer will be increased to += x + 1.
-                            case 0x0055:
-                                {
-                                    CopyV0TillVxIntoMemory();
-                                    break;
-                                }
-
-                            //0xFx65: Read the registers from V0 to Vx from the memory starting the the location defined in the index register.                    
-                            case 0x0065:
-                                {
-                                    ReadV0TillVxFromMemory();
-                                    break;
-                                }
-
-                            //0xFx0A: Waits until a key is pressed and writes the value of this key into the register Vx.
-                            case 0x000A:
-                                {
-                                    WaitUntilKeyPressed();
-                                    break;
-                                }
-
-                            default:
-                                {
-                                    _programCounterRegister += 2;
-                                    break;
-                                }
-                        }
-
-                        break;
-                    }
-                //Draws a sprite onto the screen. Thos operation will also process collision detection.
-                case 0xD000:
-                    {
-                        DrawSprite();
-                        break;
-                    }
-
-                case 0xE000:
-                    {
-                        switch (_currentOpCode & 0x00FF)
-                        {
-                            //0xEX9E: Skips the next instruction if the key stored in Vx is pressed.
-                            case 0x009E:
-                                {
-                                    SkipInstructionIfPressedKeyEqualsVx();
-                                    break;
-                                }
-
-                            //0xExA1: Skips the next instruction if the key stored in Vx is not pressed.
-                            case 0x00A1:
-                                {
-                                    SkipInstructionIfPressedKeyNotEqualsVx();
-                                    break;
-                                }
-
-                            default:
-                                {
-                                    Console.WriteLine("Unknow opcode: 0x" + _currentOpCode.ToString("X"));
-                                    _programCounterRegister += 2;
-                                    break;
-                                }
-                        }
-
-                        break;
-                    }
-
-                //0x1NNN: Jump to the location at NNN
-                case 0x1000:
-                    {
-                        JumpToNnn();
-                        break;
-                    }
-
-                //0x3XKK: Skip the next instruction, if the value in Vx equals KK
-                case 0x3000:
-                    {
-                        SkipInstructionIfVxEqualsKk();
-                        break;
-                    }
-
-                //0x4xKK: Skips the next instruction, if the value in Vx does not equals with KK
-                case 0x4000:
-                    {
-                        SkipInstructionIfVxNotEqualsKk();
-                        break;
-                    }
-
-                //0x5XY0: Skipts the nect instruction, if the value stored in Vx and Vy equals.
-                case 0x5000:
-                    {
-                        SkipInstructionIfVxEqualsVy();
-                        break;
-                    }
-
-                //0x6XKK: Puts the value KK into the register Vx
-                case 0x6000:
-                    {
-                        StoreKkIntoVx();
-                        break;
-                    }
-                //0x7XKK: Adds the value kk to the value of register Vx
-                case 0x7000:
-                    {
-                        AddsKkToVx();
-                        break;
-                    }
-
-                //0x9XY0: Skips the next instruction if the value in the register Vx and Vy does not equal.
-                case 0x9000:
-                    {
-                        SkipInstrutionIfVxAndVyDoesNotEquals();
-                        break;
-                    }
-
-                //0xBnnn: Jump to the address in the register of V0 plus the value of nnn.
-                case 0xB000:
-                    {
-                        JumpToAddressV0PlusNnn();
-                        break;
-                    }
-
-                //0xCxkk: Generates a random number between 0 to 255 is is after this ANDed with the value of kk. The result are stored in the register Vx.
-                case 0xC000:
-                    {
-                        RandomNumberAndKkIntoVx();
-                        break;
-                    }
-
-                default:
-                    {
-                        Console.WriteLine("Unknow opcode: 0x" + _currentOpCode.ToString("X"));
-                        _programCounterRegister += 2;
-
-                        break;
-                    }
+                if ((_currentOpCode & _opCodes[opIndex].Mask) == _opCodes[opIndex].OpCode)
+                {
+                    _jumpTable[_opCodes[opIndex].OpCode]();
+                }
             }
         }
+
+        /// <summary>
+        /// Draw available graphics on the screen.
+        /// </summary>
+        private void DrawGraphics()
+        {
+            _renderEngine.DrawPixelSet(_pixelMap);
+        }
+
+        /// <summary>
+        /// Stores pressed keys into the keymap.
+        /// </summary>
+        private void SetKeys()
+        {
+            if (GetKeyMap == null)
+            {
+                return;
+            }
+
+            _keyMap = GetKeyMap();
+        }
+
+        /// <summary>
+        /// Loads a game from a file.
+        /// </summary>
+        private void LoadGame()
+        {
+            const int gameStartPosition = 512;
+
+            var buffer = new byte[4096 - gameStartPosition];
+            byte[] game;
+            using(var memoryStream = new MemoryStream())
+            {
+                int bytesRead;
+                while((bytesRead = _romStream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    memoryStream.Write(buffer, 0, bytesRead);
+                }
+
+                game = memoryStream.ToArray();
+            }
+
+            // Roms are always stored at memory index 512.
+            Buffer.BlockCopy(game, 0, _memory, gameStartPosition, game.Length);
+        }
+
+        #region Processor operations
 
         [OpCode(0x00E0, 0xFFFF, "0x00E0", "CLS")]
         private void ClearScreen()
@@ -756,7 +486,7 @@ namespace Chip8Emulator
             var y = _generalPurposeRegistersV[(_currentOpCode & 0x00F0) >> 4];
             var height = _currentOpCode & 0x000F;
 
-          _generalPurposeRegistersV[0xF] = 0;
+            _generalPurposeRegistersV[0xF] = 0;
 
             for (var yLine = 0; yLine < height; yLine++)
             {
@@ -766,7 +496,7 @@ namespace Chip8Emulator
                 {
                     if ((pixel & (0x80 >> xLine)) != 0)
                     {
-                        if(x + xLine + ((y + yLine) * 64) >= _pixelMap.Length)
+                        if (x + xLine + ((y + yLine) * 64) >= _pixelMap.Length)
                         {
                             continue;
                         }
@@ -904,47 +634,10 @@ namespace Chip8Emulator
             _programCounterRegister += 2;
         }
 
-        /// <summary>
-        /// Draw available graphics on the screen.
-        /// </summary>
-        private void DrawGraphics()
+        public void Dispose()
         {
-            _renderEngine.DrawPixelSet(_pixelMap);
+            _romStream?.Dispose();
         }
-
-        /// <summary>
-        /// Stores pressed keys into the keymap.
-        /// </summary>
-        private void SetKeys()
-        {
-            if (GetKeyMap == null)
-            {
-                return;
-            }
-
-            _keyMap = GetKeyMap();
-        }
-
-        /// <summary>
-        /// Loads a game from a file.
-        /// </summary>
-        private void LoadGame()
-        {
-
-            var buffer = new byte[4096];
-            byte[] game;
-            using(var memoryStream = new MemoryStream())
-            {
-                int bytesRead;
-                while((bytesRead = _gameStream.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    memoryStream.Write(buffer, 0, bytesRead);
-                }
-
-                game = memoryStream.ToArray();
-            }
-
-            Buffer.BlockCopy(game, 0, _memory, 512, game.Length);
-        }
+        #endregion
     }
 }

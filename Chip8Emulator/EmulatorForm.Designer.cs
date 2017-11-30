@@ -1,6 +1,6 @@
 ﻿namespace Chip8Emulator
 {
-    partial class Form1
+    partial class EmulatorForm
     {
         /// <summary>
         /// Erforderliche Designervariable.
@@ -29,9 +29,9 @@
         private void InitializeComponent()
         {
             this.textBox1 = new System.Windows.Forms.TextBox();
-            this.button1 = new System.Windows.Forms.Button();
+            this.openRomButton = new System.Windows.Forms.Button();
             this.renderPanel = new System.Windows.Forms.PictureBox();
-            this.glControl1 = new OpenTK.GLControl();
+            this.chipRenderPanel = new OpenTK.GLControl();
             ((System.ComponentModel.ISupportInitialize)(this.renderPanel)).BeginInit();
             this.SuspendLayout();
             // 
@@ -43,15 +43,15 @@
             this.textBox1.Size = new System.Drawing.Size(981, 20);
             this.textBox1.TabIndex = 0;
             // 
-            // button1
+            // openRomButton
             // 
-            this.button1.Location = new System.Drawing.Point(1000, 11);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(37, 23);
-            this.button1.TabIndex = 1;
-            this.button1.Text = "...";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
+            this.openRomButton.Location = new System.Drawing.Point(1000, 11);
+            this.openRomButton.Name = "openRomButton";
+            this.openRomButton.Size = new System.Drawing.Size(37, 23);
+            this.openRomButton.TabIndex = 1;
+            this.openRomButton.Text = "...";
+            this.openRomButton.UseVisualStyleBackColor = true;
+            this.openRomButton.Click += new System.EventHandler(this.openRomButton_Click);
             // 
             // renderPanel
             // 
@@ -61,30 +61,31 @@
             this.renderPanel.TabIndex = 2;
             this.renderPanel.TabStop = false;
             // 
-            // glControl1
+            // chipRenderPanel
             // 
-            this.glControl1.BackColor = System.Drawing.Color.Black;
-            this.glControl1.Location = new System.Drawing.Point(13, 40);
-            this.glControl1.Name = "glControl1";
-            this.glControl1.Size = new System.Drawing.Size(1024, 512);
-            this.glControl1.TabIndex = 3;
-            this.glControl1.VSync = false;
+            this.chipRenderPanel.BackColor = System.Drawing.Color.Black;
+            this.chipRenderPanel.Location = new System.Drawing.Point(13, 40);
+            this.chipRenderPanel.Name = "chipRenderPanel";
+            this.chipRenderPanel.Size = new System.Drawing.Size(1024, 512);
+            this.chipRenderPanel.TabIndex = 3;
+            this.chipRenderPanel.VSync = false;
             // 
-            // Form1
+            // EmulatorForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1049, 562);
-            this.Controls.Add(this.glControl1);
+            this.Controls.Add(this.chipRenderPanel);
             this.Controls.Add(this.renderPanel);
-            this.Controls.Add(this.button1);
+            this.Controls.Add(this.openRomButton);
             this.Controls.Add(this.textBox1);
             this.KeyPreview = true;
-            this.Name = "Form1";
-            this.Text = "Form1";
-            this.Load += new System.EventHandler(this.Form1_Load);
-            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.Form1_KeyDown);
-            this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.Form1_KeyUp);
+            this.Name = "EmulatorForm";
+            this.Text = "CHIP8 Emulator";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.EmulatorForm_FormClosing);
+            this.Load += new System.EventHandler(this.EmulatorForm_Load);
+            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.EmulatorForm_KeyDown);
+            this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.EmulatorForm_KeyUp);
             ((System.ComponentModel.ISupportInitialize)(this.renderPanel)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -94,9 +95,9 @@
         #endregion
 
         private System.Windows.Forms.TextBox textBox1;
-        private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.Button openRomButton;
         private System.Windows.Forms.PictureBox renderPanel;
-        private OpenTK.GLControl glControl1;
+        private OpenTK.GLControl chipRenderPanel;
     }
 }
 
