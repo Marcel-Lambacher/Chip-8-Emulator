@@ -4,7 +4,7 @@
 
 ## Summary
 
-This is an emulator to play games based on the virtual 8 chip.
+This is an emulator to play games based on the virtual chip 8.
 
 ## Requirements
 
