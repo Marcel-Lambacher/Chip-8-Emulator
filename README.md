@@ -19,6 +19,6 @@ Just open the project using Visual Studio, restore the required Nuget packages, 
 
 ## Attention
 
-This emulator is just a proof of concept. So the emulator isn't probably able to run all available game without any bugs or crashes.
+This emulator is just a proof of concept. So the emulator isn't probably able to run all available games without any bugs or crashes.
 
 Also be aware of the code quality. As I mention, it's just a POC. But hopefully someone can learn from this and can maybe get started into emulator programming easier.
